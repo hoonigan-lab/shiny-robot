@@ -1,0 +1,412 @@
+--------------------------------------------------
+-- SERVICES
+--------------------------------------------------
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui")
+
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+--------------------------------------------------
+-- SETTINGS
+--------------------------------------------------
+
+-- CHAMS
+local chamColor = Color3.fromRGB(0,255,0)
+local chamsEnabled = true
+local chamsFillTransparency = 0.6
+local chamsOutlineColor = Color3.fromRGB(255,255,255)
+local chamsOutlineTransparency = 0.1
+local highlights = {}
+
+-- AIMBOT
+local aimbotEnabled = true
+local aimbotSmoothness = 0.15
+local smoothMin = 0.01
+local smoothMax = 1
+local wallCheckEnabled = true
+
+-- FOV
+local fovEnabled = true
+local fovRadius = 40
+local fovMin = 1
+local fovMax = 100
+
+--------------------------------------------------
+-- UI
+--------------------------------------------------
+
+local gui = Instance.new("ScreenGui", CoreGui)
+gui.Name = "Hoonigan_Menu"
+gui.ResetOnSpawn = false
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 320, 0, 410)
+frame.Position = UDim2.new(0, 40, 0, 120)
+frame.BackgroundColor3 = Color3.fromRGB(140,95,185)
+frame.BorderSizePixel = 0
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0,10)
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1,0,0,40)
+title.Text = "▁▂▄▅▆▇█ Hoonigan █▇▆▅▄▂▁"
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.new(1,1,1)
+title.Font = Enum.Font.GothamBold
+title.TextSize = 18
+
+-- BUTTON COLORS
+local enabledColor = Color3.fromRGB(75, 0, 130)
+local disabledColor = Color3.fromRGB(60, 60, 60)
+
+--------------------------------------------------
+-- DRAGGING / SLIDER STATE
+--------------------------------------------------
+
+local dragging = false
+local sliding = false
+local dragStart, startPos
+
+frame.InputBegan:Connect(function(i)
+	if i.UserInputType == Enum.UserInputType.MouseButton1 and not sliding then
+		dragging = true
+		dragStart = i.Position
+		startPos = frame.Position
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(i)
+	if i.UserInputType == Enum.UserInputType.MouseButton1 then
+		dragging = false
+		sliding = false
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(i)
+	if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
+		local delta = i.Position - dragStart
+		frame.Position = startPos + UDim2.fromOffset(delta.X, delta.Y)
+	end
+end)
+
+--------------------------------------------------
+-- BUTTON FACTORY
+--------------------------------------------------
+
+local function makeButton(text, y)
+	local b = Instance.new("TextButton", frame)
+	b.Size = UDim2.new(1, -20, 0, 30)
+	b.Position = UDim2.new(0, 10, 0, y)
+	b.BackgroundColor3 = Color3.fromRGB(75, 0, 130)
+	b.TextColor3 = Color3.new(1,1,1)
+	b.Font = Enum.Font.Gotham
+	b.TextSize = 16
+	b.Text = text
+	Instance.new("UICorner", b).CornerRadius = UDim.new(0,6)
+	return b
+end
+
+--------------------------------------------------
+-- TOGGLES
+--------------------------------------------------
+
+local chamButton = makeButton("Disable Chams", 50)
+local aimbotButton = makeButton("Disable Aimbot", 90)
+local wallCheckButton = makeButton("Disable WallCheck", 130)
+
+-- INITIAL COLORS
+chamButton.BackgroundColor3 = chamsEnabled and enabledColor or disabledColor
+aimbotButton.BackgroundColor3 = aimbotEnabled and enabledColor or disabledColor
+wallCheckButton.BackgroundColor3 = wallCheckEnabled and enabledColor or disabledColor
+
+-- CHAMS TOGGLE
+chamButton.MouseButton1Click:Connect(function()
+	chamsEnabled = not chamsEnabled
+	chamButton.Text = chamsEnabled and "Disable Chams" or "Enable Chams"
+	chamButton.BackgroundColor3 = chamsEnabled and enabledColor or disabledColor
+end)
+
+-- AIMBOT TOGGLE
+aimbotButton.MouseButton1Click:Connect(function()
+	aimbotEnabled = not aimbotEnabled
+	aimbotButton.Text = aimbotEnabled and "Disable Aimbot" or "Enable Aimbot"
+	aimbotButton.BackgroundColor3 = aimbotEnabled and enabledColor or disabledColor
+end)
+
+-- WALLCHECK TOGGLE
+wallCheckButton.MouseButton1Click:Connect(function()
+	wallCheckEnabled = not wallCheckEnabled
+	wallCheckButton.Text = wallCheckEnabled and "Disable WallCheck" or "Enable WallCheck"
+	wallCheckButton.BackgroundColor3 = wallCheckEnabled and enabledColor or disabledColor
+end)
+
+
+
+--------------------------------------------------
+-- FOV SLIDER
+--------------------------------------------------
+
+local fovLabel = Instance.new("TextLabel", frame)
+fovLabel.Size = UDim2.new(1,-20,0,20)
+fovLabel.Position = UDim2.new(0,10,0,165)
+fovLabel.BackgroundTransparency = 1
+fovLabel.TextColor3 = Color3.new(1,1,1)
+fovLabel.Font = Enum.Font.Gotham
+fovLabel.TextSize = 14
+
+local fovBack = Instance.new("Frame", frame)
+fovBack.Size = UDim2.new(1,-20,0,8)
+fovBack.Position = UDim2.new(0,10,0,190)
+fovBack.BackgroundColor3 = Color3.fromRGB(140, 95, 185)
+fovBack.BorderSizePixel = 0
+Instance.new("UICorner", fovBack).CornerRadius = UDim.new(1,0)
+
+local fovFill = Instance.new("Frame", fovBack)
+fovFill.BackgroundColor3 = Color3.fromRGB(75, 0, 130)
+fovFill.BorderSizePixel = 0
+Instance.new("UICorner", fovFill).CornerRadius = UDim.new(1,0)
+
+local function updateFov()
+	local pct = (fovRadius - fovMin) / (fovMax - fovMin)
+	fovFill.Size = UDim2.new(pct,0,1,0)
+	fovLabel.Text = "Aimbot FOV: "..fovRadius
+end
+updateFov()
+
+fovBack.InputBegan:Connect(function(i)
+	if i.UserInputType == Enum.UserInputType.MouseButton1 then
+		sliding = "FOV"
+	end
+end)
+
+--------------------------------------------------
+-- SMOOTHNESS SLIDER (SAME LOGIC)
+--------------------------------------------------
+
+local smoothLabel = Instance.new("TextLabel", frame)
+smoothLabel.Size = UDim2.new(1,-20,0,20)
+smoothLabel.Position = UDim2.new(0,10,0,200)
+smoothLabel.BackgroundTransparency = 1
+smoothLabel.TextColor3 = Color3.new(1,1,1)
+smoothLabel.Font = Enum.Font.Gotham
+smoothLabel.TextSize = 14
+
+local smoothBack = Instance.new("Frame", frame)
+smoothBack.Size = UDim2.new(1,-20,0,8)
+smoothBack.Position = UDim2.new(0,10,0,225)
+smoothBack.BackgroundColor3 = Color3.fromRGB(140, 95, 185)
+smoothBack.BorderSizePixel = 0
+Instance.new("UICorner", smoothBack).CornerRadius = UDim.new(1,0)
+
+local smoothFill = Instance.new("Frame", smoothBack)
+smoothFill.BackgroundColor3 = Color3.fromRGB(75, 0, 130)
+smoothFill.BorderSizePixel = 0
+Instance.new("UICorner", smoothFill).CornerRadius = UDim.new(1,0)
+
+local function updateSmooth()
+	local pct = (aimbotSmoothness - smoothMin) / (smoothMax - smoothMin)
+	smoothFill.Size = UDim2.new(pct,0,1,0)
+	smoothLabel.Text = string.format("Aimbot Smoothness: %.2f", aimbotSmoothness)
+end
+updateSmooth()
+
+smoothBack.InputBegan:Connect(function(i)
+	if i.UserInputType == Enum.UserInputType.MouseButton1 then
+		sliding = "SMOOTH"
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(i)
+	if i.UserInputType == Enum.UserInputType.MouseMovement and sliding then
+		local back = sliding == "FOV" and fovBack or smoothBack
+		local pct = math.clamp(
+			(i.Position.X - back.AbsolutePosition.X) / back.AbsoluteSize.X,
+			0,1
+		)
+
+		if sliding == "FOV" then
+			fovRadius = math.floor(fovMin + (fovMax - fovMin) * pct)
+			updateFov()
+		else
+			aimbotSmoothness = smoothMin + (smoothMax - smoothMin) * pct
+			updateSmooth()
+		end
+	end
+end)
+
+--------------------------------------------------
+-- CHAMS COLOR PICKER (RGB)
+--------------------------------------------------
+
+local colorLabel = Instance.new("TextLabel", frame)
+colorLabel.Size = UDim2.new(1,-20,0,20)
+colorLabel.Position = UDim2.new(0,10,0,260)
+colorLabel.BackgroundTransparency = 1
+colorLabel.Text = "Cham Color:"
+colorLabel.TextColor3 = Color3.new(1,1,1)
+colorLabel.Font = Enum.Font.Gotham
+colorLabel.TextSize = 14
+
+local colors = {
+	{"Red", Color3.fromRGB(255,0,0)},
+	{"Green", Color3.fromRGB(0,255,0)},
+	{"Blue", Color3.fromRGB(0,0,255)}
+}
+
+for i,v in ipairs(colors) do
+	local b = Instance.new("TextButton", frame)
+	b.Size = UDim2.new(0,90,0,25)
+	b.Position = UDim2.new(0,10+(i-1)*100,0,285)
+	b.BackgroundColor3 = v[2]
+	b.Text = v[1]
+	b.TextColor3 = Color3.new(1,1,1)
+	b.Font = Enum.Font.Gotham
+	b.TextSize = 14
+	Instance.new("UICorner", b)
+
+	b.MouseButton1Click:Connect(function()
+		chamColor = v[2]
+		for _,h in pairs(highlights) do
+			h.FillColor = chamColor
+		end
+	end)
+end
+
+--------------------------------------------------
+-- CHAMS LOGIC
+--------------------------------------------------
+
+local function updateCham(h)
+	h.FillColor = chamColor
+	h.FillTransparency = chamsFillTransparency
+	h.OutlineColor = chamsOutlineColor
+	h.OutlineTransparency = chamsOutlineTransparency
+end
+
+local function applyCham(player)
+	if player == LocalPlayer or not player.Character then return end
+
+	if highlights[player] then
+		highlights[player].Adornee = player.Character
+		updateCham(highlights[player])
+		return
+	end
+
+	local h = Instance.new("Highlight")
+	h.Adornee = player.Character
+	updateCham(h)
+	h.Parent = CoreGui
+	highlights[player] = h
+end
+
+local function clearCham(player)
+	if highlights[player] then
+		highlights[player]:Destroy()
+		highlights[player] = nil
+	end
+end
+
+Players.PlayerRemoving:Connect(clearCham)
+
+for _,p in ipairs(Players:GetPlayers()) do
+	if p.Character then applyCham(p) end
+	p.CharacterAdded:Connect(function()
+		task.wait(0.2)
+		if chamsEnabled then applyCham(p) end
+	end)
+end
+
+--------------------------------------------------
+-- FOV CIRCLE
+--------------------------------------------------
+
+local FOVCircle = Drawing.new("Circle")
+FOVCircle.Filled = false
+FOVCircle.Thickness = 1
+FOVCircle.Color = Color3.fromRGB(140, 95, 185)
+FOVCircle.Transparency = 1
+
+--------------------------------------------------
+-- WALL CHECK
+--------------------------------------------------
+
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+rayParams.IgnoreWater = true
+
+local function canSee(part)
+	if not wallCheckEnabled then return true end
+	rayParams.FilterDescendantsInstances = {LocalPlayer.Character}
+	local origin = Camera.CFrame.Position
+	local dir = part.Position - origin
+	local hit = workspace:Raycast(origin, dir, rayParams)
+	return hit and hit.Instance:IsDescendantOf(part.Parent)
+end
+
+--------------------------------------------------
+-- AIMBOT TARGETING
+--------------------------------------------------
+
+local function getClosestTarget()
+	local closest, shortest = nil, fovRadius
+	local center = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+
+	for _, p in ipairs(Players:GetPlayers()) do
+		if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Head") then
+			local pos, vis = Camera:WorldToViewportPoint(p.Character.Head.Position)
+			if vis then
+				local dist = (Vector2.new(pos.X,pos.Y) - center).Magnitude
+				if dist <= fovRadius and dist < shortest and canSee(p.Character.Head) then
+					shortest = dist
+					closest = p.Character.Head
+				end
+			end
+		end
+	end
+	return closest
+end
+
+--------------------------------------------------
+-- MAIN LOOP
+--------------------------------------------------
+
+RunService.RenderStepped:Connect(function()
+	-- FOV circle
+	FOVCircle.Visible = aimbotEnabled and fovEnabled
+	FOVCircle.Radius = fovRadius
+	FOVCircle.Position = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y/2)
+
+	-- Chams upkeep
+	if chamsEnabled then
+		for _,p in ipairs(Players:GetPlayers()) do
+			applyCham(p)
+		end
+	else
+		for p in pairs(highlights) do
+			clearCham(p)
+		end
+	end
+
+	-- Aimbot
+	if aimbotEnabled and UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+		local target = getClosestTarget()
+		if target then
+			Camera.CFrame = Camera.CFrame:Lerp(
+				CFrame.new(Camera.CFrame.Position, target.Position),
+				aimbotSmoothness
+			)
+		end
+	end
+end)
+
+--------------------------------------------------
+-- MENU TOGGLE (RIGHT SHIFT)
+--------------------------------------------------
+
+UserInputService.InputBegan:Connect(function(i,g)
+	if not g and i.KeyCode == Enum.KeyCode.RightShift then
+		frame.Visible = not frame.Visible
+	end
+end)
